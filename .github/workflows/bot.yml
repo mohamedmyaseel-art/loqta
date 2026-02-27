@@ -1,0 +1,54 @@
+name: Chart Bot
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - run: |
+          npm init -y
+          npm install playwright
+          npx playwright install chromium
+
+      - run: |
+          node <<EOF
+          const { chromium } = require('playwright');
+
+          (async () => {
+            const browser = await chromium.launch();
+            const page = await browser.newPage();
+
+            await page.goto("https://www.kanbkam.com/eg/ar/adidas-3s-c-spw-mid-3p-whiteblack-not-sports-specific-ankle-socks-ht3456-for-unisex-white-size-xxl-B0BPSKQL3Z", { waitUntil: "networkidle" });
+
+            await page.waitForSelector('img[alt="price chart"]');
+
+            const dataUrl = await page.$eval('img[alt="price chart"]', el => el.src);
+
+            const base64 = dataUrl.replace("data:image/png;base64,", "");
+
+            await fetch(`https://api.telegram.org/bot${process.env.TOKEN}/sendPhoto`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                chat_id: process.env.CHAT_ID,
+                photo: `data:image/png;base64,${base64}`
+              })
+            });
+
+            await browser.close();
+          })();
+          EOF
+        env:
+          TOKEN: ${{ secrets.TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
