@@ -19,7 +19,8 @@ jobs:
         with:
           node-version: 18
 
-      - run: |
+      - name: Install Playwright
+        run: |
           npm init -y
           npm install playwright
           npx playwright install chromium
@@ -31,14 +32,20 @@ jobs:
           const fs = require('fs');
 
           (async () => {
-            const browser = await chromium.launch();
-            const page = await browser.newPage();
+            const browser = await chromium.launch({ headless: true });
+            const page = await browser.newPage({
+              userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122 Safari/537.36"
+            });
 
             await page.goto("https://www.kanbkam.com/eg/ar/adidas-3s-c-spw-mid-3p-whiteblack-not-sports-specific-ankle-socks-ht3456-for-unisex-white-size-xxl-B0BPSKQL3Z", { waitUntil: "networkidle" });
 
-            await page.waitForSelector('img[alt="price chart"]');
+            await page.waitForSelector('img[alt="price chart"]', { timeout: 60000 });
 
             const dataUrl = await page.$eval('img[alt="price chart"]', el => el.src);
+
+            if (!dataUrl.startsWith("data:image/png;base64,")) {
+              throw new Error("Chart image not found or not base64");
+            }
 
             const base64 = dataUrl.replace("data:image/png;base64,", "");
             const buffer = Buffer.from(base64, 'base64');
